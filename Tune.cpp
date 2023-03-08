@@ -60,19 +60,29 @@ void SetFreq() {  //AFP 09-22-22
   }
   // =========================  End CW Xmit
 
-  if ((digitalRead(PTT) == LOW) && (currentBand == BAND_10M)) {
+#ifdef G0ORX_FRONTPANEL
+  if ((my_ptt == LOW ) && (currentBand == BAND_10M )) {
+#else
+  if ((digitalRead(PTT) == LOW ) && (currentBand == BAND_10M )) {
+#endif
     Clk2SetFreq = (((7000000) * SI5351_FREQ_MULT) + IFFreq * SI5351_FREQ_MULT) * MASTER_CLK_MULT;  //AFP 08-22-22
   } else {
     Clk2SetFreq = (((centerFreq)*SI5351_FREQ_MULT) + IFFreq * SI5351_FREQ_MULT) * MASTER_CLK_MULT;
   }
   //=====================  AFP 10-03-22 =================
-  si5351.set_freq(Clk2SetFreq, SI5351_CLK2);
+#ifdef G0ORX_FRONTPANEL
+  __disable_irq();
+#endif  
+    si5351.set_freq(Clk2SetFreq, SI5351_CLK2);
 
   if (xrState == RECEIVE_STATE) {     // Turn CLK1 off during Receive and on for Transmit  AFP 10-02-22
     si5351.set_freq(0, SI5351_CLK1);  // CLK1 off during receive to prevent birdies
   } else {
     si5351.set_freq(Clk1SetFreq, SI5351_CLK1);  // TRANSMIT_STATE
   }
+#ifdef G0ORX_FRONTPANEL
+  __enable_irq();
+#endif
   //=====================  AFP 10-03-22 =================
   DrawFrequencyBarValue();
 }

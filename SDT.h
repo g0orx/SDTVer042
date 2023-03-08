@@ -1,6 +1,14 @@
 #ifndef BEENHERE
 #define BEENHERE
 
+// include G0ORX changes
+#define G0ORX_FRONTPANEL
+#define G0ORX_KEYERPINS
+#define G0ORX_CAT
+#define G0ORX_WATERFALL
+#define G0ORX_AUDIOSOURCE
+#define G0ORX_TOP_MENU_COUNT
+
 //======================================== Library include files ========================================================
 #include <stdint.h>
 #include <Adafruit_GFX.h>
@@ -21,7 +29,12 @@
 #include <arm_const_structs.h>
 #include <si5351.h>                                 // https://github.com/etherkit/Si5351Arduino
 #include <RA8875.h>                                 // https://github.com/mjs513/RA8875/tree/RA8875_t4
+#ifdef G0ORX_FRONTPANEL
+#include <Adafruit_MCP23X17.h>
+#include "G0ORX_Rotary.h"
+#else
 #include <Rotary.h>                                 // https://github.com/brianlow/Rotary
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +55,11 @@
 #define VERSION                     "V042"
 #define RIGNAME                     "T41-EP SDT"
 #define NUMBER_OF_SWITCHES          18              // Number of push button switches. 16 on older boards
+#ifdef G0ORX_TOP_MENU_COUNT
+extern int TOP_MENU_COUNT;
+#else
 #define TOP_MENU_COUNT              12              // Menus to process AFP 09-27-22
+#endif
 #define SPLASH_DELAY                1000L           // Probably should be 4000 to actually read it
 #define RIGNAME_X_OFFSET            570             // Pixel count to rig name field                                       // Says we are using a Teensy 4 or 4.1
 #define RA8875_DISPLAY              1               // Comment out if not using RA8875 display
@@ -205,6 +222,10 @@
 #define FIELD_OFFSET_X        WATERFALL_RIGHT_X + 118                     // X coordinate for field
 #define NOTCH_X               WATERFALL_RIGHT_X + 58
 #define NOTCH_Y               WATERFALL_TOP_Y   + 90
+#ifdef G0ORX_WATERFALL
+#define GRADIENT_X            WATERFALL_RIGHT_X + 172
+#define GRADIENT_Y            WATERFALL_TOP_Y   + 90
+#endif
 #define NOISE_REDUCE_X        WATERFALL_RIGHT_X + 58
 #define NOISE_REDUCE_Y        WATERFALL_TOP_Y   + 110
 #define ZOOM_X                WATERFALL_RIGHT_X + 65
@@ -402,9 +423,13 @@
 #define SECONDARY_MENU_ACTIVE       2      // Both primary and secondary menus active
 
 //========================================= Keyer pins
+#ifdef G0ORX_KEYERPINS
+#define KEYER_DAH_INPUT_RING         33    // Ring connection for keyer  -- default for righthanded user
+#define KEYER_DIT_INPUT_TIP          34    // Tip connection for keyer
+#else
 #define KEYER_DAH_INPUT_RING         35    // Ring connection for keyer  -- default for righthanded user
 #define KEYER_DIT_INPUT_TIP          36    // Tip connection for keyer
-
+#endif
 #define OPTO_OUTPUT                  24    // To optoisolator and keyed circuit
 #define STRAIGHT_KEY                  0
 #define KEYER                         1
@@ -1084,7 +1109,12 @@ extern AudioEffectCompressor_F32 comp1, comp2;
 extern AudioConvert_F32toI16     float2Int1, float2Int2;    //Converts Float to Int16.  See class in AudioStream_F32.h
 //===============  AFP 11-01-22
 
-
+#ifdef G0ORX_FRONTPANEL
+extern G0ORX_Rotary volumeEncoder;    // (2,  3)
+extern G0ORX_Rotary tuneEncoder;      // (16, 17)
+extern G0ORX_Rotary filterEncoder;    // (14, 15)
+extern G0ORX_Rotary fineTuneEncoder;  // (4,  5);
+#else
 extern Bounce decreaseBand;
 extern Bounce increaseBand;
 extern Bounce modeSwitch;
@@ -1106,6 +1136,7 @@ extern Rotary fineTuneEncoder;  // (4,  5);
 //extern Rotary fineTuneEncoder;
 //extern Encoder filterEncoder;
 //extern Encoder volumeEncoder;
+#endif
 
 extern Metro ms_500;
 extern Metro ms_300000;// Set up a Metro
@@ -1188,6 +1219,13 @@ extern struct config_t {
 
   long centerFreq             = 7030000; // 4 bytes
 
+#ifdef G0ORX_WATERFALL
+  int waterfallGrad                     = 20;
+#endif
+#ifdef G0ORX_AUDIOSOURCE
+  int currentLineInGain                 = 5;
+  int audioSource                       = 0; // MIC no Bias
+#endif
 } EEPROMData;                                 //  Total:       438 bytes
                                 //  Total:       438 bytes
 
@@ -2012,6 +2050,10 @@ extern double elapsed_micros_idx_t;
 extern double elapsed_micros_mean;
 extern double elapsed_micros_sum;
 
+#ifdef G0ORX_AUDIOSOURCE
+extern int currentLineInGain;
+extern int audioSource;
+#endif
 
 //======================================== Function prototypes =========================================================
 
@@ -2250,6 +2292,9 @@ void UpdateEEPROMVersionNumber();
 void UpdateIncrementField();
 void UpdateNoiseField();
 void UpdateNotchField();
+#ifdef G0ORX_WATERFALL
+void UpdateGradientField();
+#endif
 void UpdateNRField();
 void UpdateVolumeField();
 void UpdateWPMField();
@@ -2269,5 +2314,33 @@ int  Xmit_IQ_Cal(); //AFP 09-21-22
 
 void ZoomFFTPrep();
 void ZoomFFTExe(uint32_t blockSize);
+
+#ifdef G0ORX_CAT
+extern int my_ptt;
+extern int CATOptions();
+extern bool catTX;
+extern void CATSerialEvent();
+extern int  ChangeBand(long f, boolean updateRelays);
+#endif
+
+#ifdef G0ORX_FRONTPANEL
+extern int my_ptt;
+extern int G0ORXButtonPressed;
+extern void FrontPanelInit();
+extern void FrontPanelCheck();
+extern void FrontPanelSetLed(int led,uint8_t state);
+#endif
+
+#ifdef G0ORX_WATERFALL
+extern int waterfallGrad;
+extern bool bSettingWaterfallGrad;
+extern bool gradientChangeFlag;
+extern int WaterfallGradSet();
+#endif
+
+#ifdef G0ORX_AUDIOSOURCE
+extern int AudioSourceOptions();
+extern int LineInGainSet();
+#endif
 
 #endif

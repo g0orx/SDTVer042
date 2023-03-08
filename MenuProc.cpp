@@ -21,7 +21,13 @@ int CalibrateOptions(int IQChoice)
         case 0:                          // Calibrate Frequency  - uses WWV
       freqCorrectionFactor = GetEncoderValueLive(-200000, 200000, freqCorrectionFactor, increment, (char *)"Freq Cal: ");
       if (freqCorrectionFactor != freqCorrectionFactorOld) {
+#ifdef G0ORX_FRONTPANEL
+        __disable_irq();
+#endif
         si5351.init(SI5351_CRYSTAL_LOAD_10PF, Si_5351_crystal, freqCorrectionFactor);
+#ifdef G0ORX_FRONTPANEL
+        __enable_irq();
+#endif
         SetFreq();
         MyDelay(10L);
         freqCorrectionFactorOld = freqCorrectionFactor;
@@ -968,3 +974,109 @@ int SubmenuSelect(const char *options[], int numberOfChoices, int defaultStart)
     }
   }
 }
+
+#ifdef G0ORX_WATERFALL
+int WaterfallGradSet() {
+  const char *waterfallGradChoices[] = {"Set Waterfall Grad", "Cancel"};
+  int waterfallGradChoice = SubmenuSelect(waterfallGradChoices, 2, 0);
+  switch (waterfallGradChoice) {
+    case 0:
+      //int val;
+      //waterfallGrad = EEPROMData.waterfallGrad;
+      tft.setFontScale( (enum RA8875tsize) 1);
+      tft.fillRect(SECONDARY_MENU_X - 50, MENUS_Y, EACH_MENU_WIDTH + 50, CHAR_HEIGHT, RA8875_MAGENTA);
+      tft.setTextColor(RA8875_WHITE);
+      tft.setCursor(SECONDARY_MENU_X  - 48, MENUS_Y + 1);
+      tft.print("Waterfall Grad:");
+      tft.setCursor(SECONDARY_MENU_X + 180, MENUS_Y + 1);
+      tft.print(waterfallGrad);
+      bSettingWaterfallGrad = true;
+      gradientChangeFlag = true;
+      return 0;
+    case 1:
+      break;
+  }
+  EraseMenus();
+  return waterfallGradChoice;
+}
+#endif
+
+#ifdef G0ORX_AUDIOSOURCE
+int AudioSourceOptions() {
+  const char *AudioSourceOpts[] = {"Mic", "Mic+Bias", "LineIn", "Cancel"};
+  int defaultOpt = 0;
+
+  defaultOpt = SubmenuSelect(AudioSourceOpts, 4, defaultOpt);
+  switch (defaultOpt) {
+    case 0:                                   // Mic (Bias Disabled)
+      audioSource = 0;
+      sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
+      sgtl5000_1.micGain(20);
+      sgtl5000_1.lineInLevel(0);
+      sgtl5000_1.micBiasDisable();
+      break;
+
+    case 1:                                   // Mic (Bias Enabled)
+      audioSource = 1;
+      sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
+      sgtl5000_1.micGain(20);
+      sgtl5000_1.lineInLevel(0);
+      sgtl5000_1.micBiasEnable();
+      break;
+
+    case 2:                                   // LineIn
+      audioSource = 2;
+      sgtl5000_1.inputSelect(AUDIO_INPUT_LINEIN);
+      sgtl5000_1.micGain(0);
+      sgtl5000_1.lineInLevel(20);
+      break;
+
+    default:
+      defaultOpt = -1;                        // Cancel No choice made
+      break;
+  }
+  return defaultOpt;
+}
+
+int LineInGainSet() {
+  const char *lineInGainChoices[] = {"Set LinIn Gain", "Cancel"};
+  int lineInGainChoice = SubmenuSelect(lineInGainChoices, 2, micGainChoice);
+  switch (lineInGainChoice) {
+    case 0:
+      int val;
+      currentLineInGain = EEPROMData.currentLineInGain;
+      tft.setFontScale( (enum RA8875tsize) 1);
+      tft.fillRect(SECONDARY_MENU_X - 50, MENUS_Y, EACH_MENU_WIDTH + 50, CHAR_HEIGHT, RA8875_MAGENTA);
+      tft.setTextColor(RA8875_WHITE);
+      tft.setCursor(SECONDARY_MENU_X  - 48, MENUS_Y + 1);
+      tft.print("LineIn Gain:");
+      tft.setCursor(SECONDARY_MENU_X + 180, MENUS_Y + 1);
+      tft.print(currentLineInGain);
+      while (true) {
+        if (filterEncoderMove != 0) {
+          currentLineInGain += ((float) filterEncoderMove);
+          if (currentLineInGain < 0)
+            currentLineInGain = 0;
+          else if (currentLineInGain > 15)                 // 100% max
+            currentLineInGain = 15;
+          tft.fillRect(SECONDARY_MENU_X + 180, MENUS_Y, 80, CHAR_HEIGHT, RA8875_MAGENTA);
+          tft.setCursor(SECONDARY_MENU_X + 180, MENUS_Y + 1);
+          tft.print(currentMicGain);
+          filterEncoderMove = 0;
+        }
+        val = ReadSelectedPushButton();                                  // Read pin that controls all switches
+        val = ProcessButtonPress(val);
+        //MyDelay(150L);
+        if (val == MENU_OPTION_SELECT) {                             // Make a choice??
+          EEPROMData.currentLineInGain = currentLineInGain;
+          EEPROMWrite();
+          break;
+        }
+      }
+    case 1:
+      break;
+  }
+  EraseMenus();
+  return lineInGainChoice;
+}
+#endif

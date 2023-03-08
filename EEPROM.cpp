@@ -142,6 +142,13 @@ void EEPROMRead()
   lastFrequencies[6][1]      = EEPROMData.lastFrequencies[6][1];
   
   centerFreq                 = EEPROMData.lastFrequencies[currentBand][activeVFO]; // 4 bytes
+#ifdef G0ORX_WATERFALL
+  waterfallGrad              = EEPROMData.waterfallGrad;
+#endif
+#ifdef G0ORX_AUDIOSOURCE
+  currentLineInGain = EEPROMData.currentLineInGain;
+  audioSource = EEPROMData.audioSource;
+#endif
 }
 
 
@@ -228,6 +235,14 @@ void EEPROMWrite()
   EEPROMData.lastFrequencies[currentBandB][VFO_B]     = currentFreqB;     // 4 bytes
   EEPROMData.freqCorrectionFactor                     = freqCorrectionFactor;
   
+  #ifdef G0ORX_WATERFALL
+  EEPROMData.waterfallGrad = waterfallGrad;
+#endif
+#ifdef G0ORX_AUDIOSOURCE
+  EEPROMData.currentLineInGain = currentLineInGain;
+  EEPROMData.audioSource =audioSource;
+#endif  
+
   EEPROM.put(EEPROM_BASE_ADDRESS, EEPROMData);
   CopyEEPROMToSD();
   syncEEPROM = 0;                                                   // SD EEPROM different that memory EEPROM
@@ -371,6 +386,13 @@ void EEPROMShow()
   Serial.println(" ");
   Serial.print("centerFreq             = "); Serial.println( (long)EEPROMData.centerFreq);
 
+#ifdef G0ORX_WATERFALL
+  Serial.print("waterfallGrad          = "); Serial.println(waterfallGrad);
+#endif
+#ifdef G0ORX_AUDIOSOURCE
+  Serial.print("currentLineInGain      = "); Serial.println(currentLineInGain);
+  Serial.print("audioSource            = "); Serial.println(audioSource);
+#endif
   Serial.println("----- End EEPROM Parameters -----");
 }
 
@@ -551,6 +573,14 @@ void EEPROMSaveDefaults()
   EEPROMData.lastFrequencies[6][1] = 28060000;  // 10
 
   EEPROMData.centerFreq            = EEPROMData.lastFrequencies[currentBand][activeVFO];   // 4 bytes
+
+#ifdef G0ORX_WATERFALL
+  EEPROMData.waterfallGrad = 20;
+#endif
+#ifdef G0ORX_AUDIOSOURCE
+  EEPROMData.currentLineInGain = 5;
+  EEPROMData.audioSource = 0; // Mic (no bias)
+#endif
 
   EEPROM.put(0, EEPROMData);
   if (sdCardPresent == 1) {                         // No SD card

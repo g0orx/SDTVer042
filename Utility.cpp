@@ -454,6 +454,7 @@ float ApproxAtan(float z)
 *****/
 void SaveAnalogSwitchValues()
 {
+#ifndef G0ORX_FRONTPANEL
   /*                                                                        This list is new with V017
     const char *labels[]        = {"Select",       "Menu Up",  "Band Up",
                                  "Zoom",         "Menu Dn",  "Band Dn",
@@ -510,6 +511,7 @@ void SaveAnalogSwitchValues()
       MyDelay(100L);
     }
   }
+#endif
 //  EEPROM.put(0, EEPROMData);                        // Save values to EEPROM
 }
 
@@ -623,3 +625,31 @@ void SetBand()
   ShowFrequency();
   FilterBandwidth();
 }
+
+#ifdef G0ORX_CAT
+/*****
+  Purpose: change band from frequency
+  Paramter list:
+    long frequency
+  Return value:
+    int band
+*****/
+int ChangeBand(long f, bool updateRelays) {
+  int b;
+  for(b=FIRST_BAND;b<=LAST_BAND;b++) {
+    if(f<=bands[b].fBandHigh) {
+      break;
+    }
+  }
+  if(b>LAST_BAND) {
+    b=LAST_BAND;
+  }
+
+  if(updateRelays && b!=currentBand) {
+    digitalWrite(bandswitchPins[currentBand], LOW);
+    digitalWrite(bandswitchPins[b], HIGH);    
+  }
+ 
+  return b;
+}
+#endif

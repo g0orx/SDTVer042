@@ -467,6 +467,23 @@ void EncoderFilter()
       // filter_pos = last_filter_pos - 5 * filterEncoderMove;   // AFP 10-22-22
       break;
   }
+#ifdef G0ORX_WATERFALL
+  if(bSettingWaterfallGrad) {
+    waterfallGrad += ((float) filterEncoderMove);
+    if (waterfallGrad < 0)
+      waterfallGrad = 0;
+    else if (waterfallGrad > 50)                 // 100% max
+      waterfallGrad = 50;
+/*
+    tft.setFontScale( (enum RA8875tsize) 1);
+    tft.setTextColor(RA8875_WHITE);
+    tft.fillRect(SECONDARY_MENU_X + 180, MENUS_Y, 80, CHAR_HEIGHT, RA8875_MAGENTA);
+    tft.setCursor(SECONDARY_MENU_X + 180, MENUS_Y + 1);
+    tft.print(waterfallGrad);
+*/
+    gradientChangeFlag = true;
+  } else
+#endif
   if (calibrateFlag == 0) {// AFP 10-22-22
     filter_pos = last_filter_pos - 5 * filterEncoderMove;// AFP 10-22-22
   }// AFP 10-22-22

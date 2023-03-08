@@ -116,6 +116,10 @@ void ShowSpectrum()  //AFP Extensively Modified 3-15-21 Adjusted 12-13-21 to ali
     }
     
     EncoderCenterTune();          // Moved the tuning encoder to reduce lag times and interference during tuning.
+
+#ifdef G0ORX_CAT
+    CATSerialEvent();
+#endif
     
     y_new  = pixelnew[x1];
     y1_new = pixelnew[x1 - 1];
@@ -180,7 +184,11 @@ void ShowSpectrum()  //AFP Extensively Modified 3-15-21 Adjusted 12-13-21 to ali
       }
     }
 
+#ifdef G0ORX_WATERFALL
+    waterfall[x1] = gradient[y_new - waterfallGrad];
+#else
     waterfall[x1] = gradient[y_new - 20];
+#endif
     tft.writeTo(L1);
   }
   // End for(...) Draw MAX_WATERFALL_WIDTH spectral points
@@ -832,6 +840,9 @@ void UpdateInfoWindow()
   tft.setFontScale( (enum RA8875tsize) 0);
   UpdateIncrementField();
   UpdateNotchField();
+#ifdef G0ORX_WATERFALL
+  UpdateGradientField();
+#endif
   UpdateNoiseField();
   UpdateZoomField();
   UpdateCompressionField();
@@ -1163,12 +1174,15 @@ void SetFavoriteFrequencies()
       tft.setCursor(BAND_INDICATOR_X + 30, BAND_INDICATOR_Y + (offset * index) + 5);
       tft.print(currentFreq);
     }
+#ifdef G0ORX_FRONTPANEL
+#else
     selectExitMenues.update();                            // Exit submenu button
     if (selectExitMenues.fallingEdge()) {
       EEPROMData.favoriteFreqs[index] = currentFreq;      // Update the EEPROM value
 ///      EEPROMWrite();                                      // Save it
       break;
     }
+#endif
   }
   tft.drawRect(BAND_INDICATOR_X - 10, BAND_INDICATOR_Y - 1, 260, 185, RA8875_LIGHT_GREY);
 
@@ -1457,3 +1471,35 @@ void ShowTransmitReceiveStatus()
     tft.print("REC");
   }
 }
+
+#ifdef G0ORX_WATERFALL
+/*****
+  Purpose: Updates the Waterfall Gradient setting on the display
+
+  Parameter list:
+    void
+
+  Return value;
+    void
+*****/
+void UpdateGradientField()
+{
+  tft.setFontScale( (enum RA8875tsize) 0);
+  if(bSettingWaterfallGrad) {
+    tft.setTextColor(RA8875_RED);
+  } else {
+    tft.setTextColor(RA8875_WHITE);
+  }
+
+  tft.fillRect(GRADIENT_X, GRADIENT_Y, tft.getFontWidth() * 11, tft.getFontHeight() + 5, RA8875_BLACK);
+  tft.setCursor(GRADIENT_X, GRADIENT_Y);
+  tft.print("WF Grad:");
+  tft.setCursor(GRADIENT_X + tft.getFontWidth() * 9, GRADIENT_Y);
+  if(bSettingWaterfallGrad) {
+    tft.setTextColor(RA8875_RED);
+  } else {
+    tft.setTextColor(RA8875_GREEN);
+  }
+  tft.print(waterfallGrad);
+}
+#endif

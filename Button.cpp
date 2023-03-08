@@ -13,6 +13,9 @@
 *****/
 int ProcessButtonPress(int valPin)
 {
+#ifdef G0ORX_FRONTPANEL
+  return valPin;
+#else
   int switchIndex;
 
   if (valPin == BOGUS_PIN_READ) {                  // Not valid press
@@ -30,6 +33,7 @@ int ProcessButtonPress(int valPin)
     }
   }
   return -1;                                              // Really should never do this
+#endif
 }
 
 /*****
@@ -43,6 +47,13 @@ int ProcessButtonPress(int valPin)
 *****/
 int ReadSelectedPushButton()
 {
+#ifdef G0ORX_FRONTPANEL
+  __disable_irq();
+  int i=G0ORXButtonPressed;
+  G0ORXButtonPressed=-1;
+  __enable_irq()
+  return i;
+#else
   minPinRead        = 0;
   int buttonReadOld = 1023;
 
@@ -57,6 +68,7 @@ int ReadSelectedPushButton()
   minPinRead = buttonRead;
   MyDelay(100L);
   return minPinRead;
+#endif
 }
 
 /*****
@@ -72,6 +84,12 @@ int ReadSelectedPushButton()
 void ExecuteButtonPress(int val)
 {
   if (val == MENU_OPTION_SELECT && menuStatus == NO_MENUS_ACTIVE) {          // Pressed Select with no primary/secondary menu selected
+#ifdef G0ORX_WATERFALL
+    if(bSettingWaterfallGrad) {
+      bSettingWaterfallGrad=false;
+      gradientChangeFlag = true;
+    } else 
+#endif
     NoActiveMenu();
     return;
   } else {
@@ -245,6 +263,25 @@ void ExecuteButtonPress(int val)
 #endif
       break;
 
+#ifdef G0ORX_FRONTPANEL
+    case 18:                                                      // 18 - Encoder 1 SW (Volume)
+      // Temp use for PTT
+      if(my_ptt==HIGH) {
+        my_ptt=LOW;
+      } else if(my_ptt==LOW) {
+        my_ptt=HIGH;
+      }
+      break;
+      
+    case 19:                                                      // 19 - Encoder 2 SW
+      break;      
+
+    case 20:                                                      // 20 - Encoder 3 SW
+      break;
+
+    case 21:                                                      // 21 - Encoder 4 SW
+      break;
+#endif
     default:
       break;
   }

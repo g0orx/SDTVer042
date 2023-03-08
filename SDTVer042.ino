@@ -258,6 +258,20 @@ Memory Usage on Teensy 4.1:
 #include "SDT.h"
 #endif
 
+#ifdef G0ORX_FRONTPANEL
+int my_ptt=HIGH;
+#endif
+
+#ifdef G0ORX_WATERFALL
+int waterfallGrad=20;
+bool bSettingWaterfallGrad=false;
+bool gradientChangeFlag=false;
+#endif
+
+#ifdef G0ORX_TOP_MENU_COUNT
+int TOP_MENU_COUNT;
+#endif
+
 bool save_last_frequency = false;
 struct band bands[NUMBER_OF_BANDS] = {  //AFP Changed 1-30-21
   //freq    band low   band hi   name    mode      Low    Hi  Gain  type    gain  AGC   pixel
@@ -274,13 +288,25 @@ struct band bands[NUMBER_OF_BANDS] = {  //AFP Changed 1-30-21
 const char *topMenus[] = { "CW Options", "RF Set", "VFO Select",
                            "EEPROM", "AGC", "Spectrum Options",
                            "Noise Floor", "Mic Gain", "Mic Comp",
-                           "EQ Rec Set", "EQ Xmt Set", "Calibrate" };
+                           "EQ Rec Set", "EQ Xmt Set", "Calibrate"
+#ifdef G0ORX_WATERFALL
+                         , "Waterfall"
+#endif
+#ifdef G0ORX_AUDIOSOURCE
+                         , "Audio Source", "LineIn Gain"
+#endif                                 
+                           };
 const char *CWFilter[] = { "0.8kHz", "1.0kHz", "1.3kHz", "1.8kHz", "2.0kHz", " Off " };
 int (*functionPtr[])() = { &CWOptions, &RFOptions, &VFOSelect,
                            &EEPROMOptions, &AGCOptions, &SpectrumOptions,
                            &ButtonSetNoiseFloor, &MicGainSet, &MicOptions,
                            &EqualizerRecOptions, &EqualizerXmtOptions, &IQOptions
-
+#ifdef G0ORX_WATERFALL
+                         , &WaterfallGradSet
+#endif
+#ifdef G0ORX_AUDIOSOURCE
+                         , &AudioSourceOptions, &LineInGainSet
+#endif 
 };
 const char *labels[] = { "Select", "Menu Up", "Band Up",
                          "Zoom", "Menu Dn", "Band Dn",
@@ -391,7 +417,7 @@ AudioConnection patchCord24(Q_out_R_Ex, 0, modeSelectOutR, 1);
 //AudioControlSGTL5000  sgtl5000_1;
 AudioControlSGTL5000 sgtl5000_2;
 // ===========================  AFP 08-22-22 end
-
+#ifndef G0ORX_FRONTPANEL
 Bounce decreaseBand = Bounce(BAND_MENUS, 50);
 Bounce increaseBand = Bounce(BAND_PLUS, 50);
 Bounce modeSwitch = Bounce(CHANGE_MODE, 50);
@@ -411,7 +437,7 @@ Rotary volumeEncoder   = Rotary(VOLUME_ENCODER_A,   VOLUME_ENCODER_B);        //
 Rotary tuneEncoder     = Rotary(TUNE_ENCODER_A,     TUNE_ENCODER_B);          //(16, 17)
 Rotary filterEncoder   = Rotary(FILTER_ENCODER_A,   FILTER_ENCODER_B);        //(15, 14)
 Rotary fineTuneEncoder = Rotary(ENCODER3_ENCODER_A, ENCODER3_ENCODER_B);      //( 4,  5)
-
+#endif
 Metro ms_500 = Metro(500);  // Set up a Metro
 Metro ms_300000 = Metro(300000);
 Metro encoder_check = Metro(100);  // Set up a Metro
@@ -1124,6 +1150,10 @@ int LP_F_help = 3500;
 int mainTuneEncoder;
 int micChoice;
 int micGainChoice;
+#ifdef G0ORX_AUDIOSOURCE
+int currentLineInGain                        = 5;
+int audioSource                              = 0; // Mic (no Bias)
+#endif
 int minPinRead = 1024;
 int NR_Index = 0;
 int n_L;
@@ -2042,10 +2072,15 @@ void InitializeDataArrays() {
   /****************************************************************************************
      start local oscillator Si5351
   ****************************************************************************************/
+#ifdef G0ORX_FRONTPANEL
+  __disable_irq();
+#endif
   //si5351.init(SI5351_CRYSTAL_LOAD_10PF, Si_5351_crystal, 68000);
   si5351.drive_strength(SI5351_CLK1, SI5351_DRIVE_8MA);  //AFP 10-13-22
   si5351.drive_strength(SI5351_CLK2, SI5351_DRIVE_8MA);  //CWP AFP 10-13-22
-
+#ifdef G0ORX_FRONTPANEL
+  __enable_irq();
+#endif
   SetFreq();
 
   SpectralNoiseReductionInit();
@@ -2090,7 +2125,16 @@ void Splash() {
   tft.print("Al Peter, AC8GY");
   tft.setCursor(200, YPIXELS / 2 + 90);
   tft.print("Jack Purdum, W8TEE");
-
+#ifdef G0ORX_CAT
+  tft.setFontScale(1);
+  tft.setCursor(0, YPIXELS / 2 + 170);
+  tft.print("Includes: USB CAT by John Melton, G0ORX");
+#endif
+#ifdef G0ORX_FRONTPANEL
+  tft.setFontScale(1);
+  tft.setCursor(0, YPIXELS / 2 + 200);
+  tft.print("Includes: I2C Front Panel by John Melton, G0ORX");
+#endif
   MyDelay(SPLASH_DELAY);
   tft.fillWindow(RA8875_BLACK);
 }
@@ -2111,6 +2155,9 @@ PROGMEM
 void setup() {
   Serial.begin(9600);
 //Serial.print(CrashReport) ;
+#ifdef G0ORX_TOP_MENU_COUNT
+  TOP_MENU_COUNT = sizeof(topMenus)/sizeof(topMenus[0]);
+#endif
   setSyncProvider(getTeensy3Time);  // get TIME from real time clock with 3V backup battery
   setTime(now());
   Teensy3Clock.set(now());  // set the RTC
@@ -2120,10 +2167,32 @@ void setup() {
   sgtl5000_1.enable();
   AudioMemory(400);
   AudioMemory_F32(10);
+#ifdef G0ORX_AUDIOSOURCE
+  switch(audioSource) {
+    case 0: // MIC no bias
+      sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
+      sgtl5000_1.micGain(20);
+      sgtl5000_1.lineInLevel(0);
+      sgtl5000_1.micBiasDisable();
+      break;
+    case 1: // MIC bias
+      sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
+      sgtl5000_1.micGain(20);
+      sgtl5000_1.lineInLevel(0);
+      sgtl5000_1.micBiasEnable();
+      break;
+    case 2: // LineIn
+      sgtl5000_1.inputSelect(AUDIO_INPUT_LINEIN);
+      sgtl5000_1.micGain(0);
+      sgtl5000_1.lineInLevel(20);
+      break;
+  }
+#else
   sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
   //sgtl5000_1.inputSelect(AUDIO_INPUT_LINEIN);
   sgtl5000_1.micGain(20);
   sgtl5000_1.lineInLevel(0);
+#endif
   sgtl5000_1.lineOutLevel(20);
   sgtl5000_1.adcHighPassFilterDisable();  //reduces noise.  https://forum.pjrc.com/threads/27215-24-bit-audio-boards?p=78831&viewfull=1#post78831
 
@@ -2182,7 +2251,7 @@ void setup() {
   *(digital_pin_to_info_PGM + 13)->pad      = iospeed_display;  //clk
   *(digital_pin_to_info_PGM + 11)->pad      = iospeed_display;  //MOSI
   *(digital_pin_to_info_PGM + TFT_CS)->pad  = iospeed_display;
-
+#ifndef G0ORX_FRONTPANEL
   tuneEncoder.begin(true);
   volumeEncoder.begin(true);
   attachInterrupt(digitalPinToInterrupt(VOLUME_ENCODER_A), EncoderVolume, CHANGE);
@@ -2193,7 +2262,7 @@ void setup() {
   fineTuneEncoder.begin(true);
   attachInterrupt(digitalPinToInterrupt(ENCODER3_ENCODER_A), EncoderFineTune, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENCODER3_ENCODER_B), EncoderFineTune, CHANGE);
-
+#endif
   attachInterrupt(digitalPinToInterrupt(KEYER_DIT_INPUT_TIP), KeyTipOn, CHANGE);  // Changed to keyTipOn from KeyOn everywhere JJP 8/31/22
   attachInterrupt(digitalPinToInterrupt(KEYER_DAH_INPUT_RING), KeyRingOn, CHANGE);
 
@@ -2214,8 +2283,10 @@ void setup() {
   EEPROMStartup();
 
 
-#ifdef DEBUG1
+#ifndef G0ORX_CAT
+#ifdef DEBUG
   EEPROMShow();
+#endif
 #endif
 
   /*    // KD0RC
@@ -2261,7 +2332,13 @@ void setup() {
 
   // ========================  End set up of paramters from EEPROM data ===============
   NCOFreq = 0;
+#ifdef G0ORX_FRONTPANEL  // disable interrupts in case an MCP23017 interrupts and uses the I2C bus
+  __disable_irq();
+#endif
   si5351.init(SI5351_CRYSTAL_LOAD_10PF, Si_5351_crystal, freqCorrectionFactor);
+#ifdef G0ORX_FRONTPANEL
+  __enable_irq();
+#endif
   if (xmtMode == CW_MODE && decoderFlag == DECODE_OFF) {
     decoderFlag = DECODE_OFF;  // AFP 09-27-22
   } else {
@@ -2355,6 +2432,32 @@ void setup() {
   comp2.setPreGain_dB(-10);  //set the gain of the Right-channel gain processor
   //IQAmpCorrectionFactor[currentBandA]   =   EEPROMData.IQAmpCorrectionFactor[currentBandA];
   //IQPhaseCorrectionFactor[currentBandA] =   EEPROMData.IQPhaseCorrectionFactor[currentBandA];
+
+#ifdef G0ORX_AUDIOSOURCE
+  switch(audioSource) {
+    case 0: // MIC no bias
+      sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
+      sgtl5000_1.micGain(20);
+      sgtl5000_1.lineInLevel(0);
+      sgtl5000_1.micBiasDisable();
+      break;
+    case 1: // MIC bias
+      sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
+      sgtl5000_1.micGain(20);
+      sgtl5000_1.lineInLevel(0);
+      sgtl5000_1.micBiasEnable();
+      break;
+    case 2: // LineIn
+      sgtl5000_1.inputSelect(AUDIO_INPUT_LINEIN);
+      sgtl5000_1.micGain(0);
+      sgtl5000_1.lineInLevel(20);
+      break;
+  }
+#endif
+#ifdef G0ORX_FRONTPANEL
+  FrontPanelInit();
+#endif
+
 #ifndef SD_CARD_PRESENT
   sdCardPresent = 0;
 #else
@@ -2394,6 +2497,10 @@ void  loop()
   long ditTimerOff;  //AFP 09-22-22
   long dahTimerOn;
 
+#ifdef G0ORX_CAT
+  CATSerialEvent();
+#endif
+
   valPin = ReadSelectedPushButton();                     // Poll UI push buttons
   if (valPin != BOGUS_PIN_READ) {                        // If a button was pushed...
     pushButtonSwitchIndex = ProcessButtonPress(valPin);  // Winner, winner...chicken dinner!
@@ -2402,7 +2509,11 @@ void  loop()
  
 
   if (xmtMode == SSB_MODE) {  //SSB Mode
-     if (digitalRead(PTT) == HIGH) {
+#ifdef G0ORX_FRONTPANEL
+    if (my_ptt == HIGH) {
+#else
+    if (digitalRead(PTT) == HIGH) {
+#endif
  
       digitalWrite(MUTE, LOW);  // Audio Mute off
       modeSelectInR.gain(0, 1);
@@ -2430,7 +2541,11 @@ void  loop()
        ShowSpectrum();
       
     } else {  //================  SSB Transmit Mode ===========
+#ifdef G0ORX_FRONTPANEL
+      if (my_ptt == LOW) {
+#else
       if (digitalRead(PTT) == LOW) {
+#endif
         Q_in_L.end();  //Set up input Queues for transmit
         Q_in_R.end();
         Q_in_L_Ex.begin();
@@ -2465,8 +2580,18 @@ void  loop()
       modeSelectOutExR.gain(0, powerOutSSB[currentBandA]);  //AFP 10-21-22
       ShowTransmitReceiveStatus();
 
+#ifdef G0ORX_FRONTPANEL
+      while (my_ptt == LOW) {
+#else
       while (digitalRead(PTT) == LOW) {
+#endif
         ExciterIQData();
+#ifdef G0ORX_FRONTPANEL
+        ExecuteButtonPress(ProcessButtonPress(ReadSelectedPushButton()));
+#endif
+#ifdef G0ORX_CAT
+        CATSerialEvent();
+#endif
       }
       Q_in_L_Ex.end();  // End Transmit Queue
       Q_in_R_Ex.end();
@@ -2654,6 +2779,13 @@ void  loop()
     volumeChangeFlag = false;
     UpdateVolumeField();
   }
+
+#ifdef G0ORX_WATERFALL
+  if (gradientChangeFlag == true) {
+    gradientChangeFlag = false;
+    UpdateGradientField();
+  }
+#endif
   /* if (ms_500.check() == 1)                                  // For clock updates AFP 10-26-22
     {
      //wait_flag = 0;
