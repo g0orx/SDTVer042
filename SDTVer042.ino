@@ -258,7 +258,7 @@ Memory Usage on Teensy 4.1:
 #include "SDT.h"
 #endif
 
-#ifdef G0ORX_FRONTPANEL
+#if defined(G0ORX_FRONTPANEL) || defined (G0ORX_CAT)
 int my_ptt=HIGH;
 #endif
 

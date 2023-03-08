@@ -61,7 +61,7 @@ void processCATCommand() {
   char p1;
   bool xmtMode_changed= false;
   
-#ifdef DEBUG_CAT
+#if defined(DEBUG_CAT) && defined(G0ORX_FRONTPANEL)
   FrontPanelSetLed(0, 1);
 #endif
 
@@ -445,17 +445,21 @@ void processCATCommand() {
   int i=0;
   while(outputBuffer[i]!='\0') {
     if(Serial.availableForWrite()>0) {
+#if defined(DEBUG_CAT) && defined(G0ORX_FRONTPANEL)
       FrontPanelSetLed(1, 0);
+#endif
       Serial.print(outputBuffer[i]);
       i++;
     } else {
+#if defined(DEBUG_CAT) && defined(G0ORX_FRONTPANEL)
       FrontPanelSetLed(1, 1);
+#endif
       Serial.send_now();
     }
   }
   Serial.send_now();
   
-#ifdef DEBUG_CAT
+#if defined(DEBUG_CAT) && defined(G0ORX_FRONTPANEL)
   FrontPanelSetLed(0, 0);
 #endif
 }

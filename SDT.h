@@ -2315,8 +2315,11 @@ int  Xmit_IQ_Cal(); //AFP 09-21-22
 void ZoomFFTPrep();
 void ZoomFFTExe(uint32_t blockSize);
 
-#ifdef G0ORX_CAT
+#if defined(G0ORX_FRONTPANEL) || defined (G0ORX_CAT)
 extern int my_ptt;
+#endif
+
+#ifdef G0ORX_CAT
 extern int CATOptions();
 extern bool catTX;
 extern void CATSerialEvent();
@@ -2324,7 +2327,6 @@ extern int  ChangeBand(long f, boolean updateRelays);
 #endif
 
 #ifdef G0ORX_FRONTPANEL
-extern int my_ptt;
 extern int G0ORXButtonPressed;
 extern void FrontPanelInit();
 extern void FrontPanelCheck();
