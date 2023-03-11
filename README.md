@@ -14,3 +14,5 @@ https://groups.io/g/SoftwareControlledHamRadio
 ### Added Menu item to change Waterfall gradient (default always subtract 20 from pixel value).
 
 ### Added Menu item to select Audio input as Mic or LineIn and Menu item to adjust LineIn gain.
+
+https://github.com/g0orx/T41-EP/ to see Hardware changes.
